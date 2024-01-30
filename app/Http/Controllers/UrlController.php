@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\UrlrRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Url;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Http\Response;
 
 
 
@@ -16,9 +18,9 @@ class UrlController extends Controller
     const MAX_REQUESTS = 3;
     const BLOCK_DURATION = 5;
 
-    public function shortUrl(Request $request, Url $urlModel)
+    public function shortUrl(UrlrRequest $request, Url $urlModel)
     {
-        $this->validateRequest($request);
+       
 
         $ip = $request->ip();
 
@@ -49,15 +51,14 @@ class UrlController extends Controller
 
         $shortenedUrl = url("/$key");
 
-        return response()->json(['success' => 'Short URL generated successfully!', 'shortenedUrl' => $shortenedUrl]);
-    }
-
-    private function validateRequest(Request $request)
-    {
-        $request->validate([
-            'original_url' => 'required|url',
+        return response()->json([
+            'status' => 'success',
+            'Response' => Response::HTTP_OK,
+            'success' => 'Short URL generated successfully!', 'shortenedUrl' => $shortenedUrl
         ]);
     }
+
+   
 
     private function isIPBlocked($ip)
     {
@@ -67,8 +68,10 @@ class UrlController extends Controller
     private function handleBlockedIP($blockedUntil)
     {
         return response()->json([
+            'status' => 'error',
+            'Response' => Response::HTTP_FORBIDDEN,
             'error' => "Your IP address is currently blocked. Please try again after {$blockedUntil->diffForHumans()}",
-        ], 403);
+        ]);
     }
 
     private function getRecentRequestsCount($ip)
@@ -82,8 +85,10 @@ class UrlController extends Controller
         Url::where('ip', $ip)->update(['block_count' => \DB::raw('block_count + 1'), 'blocked_until' => $blockedUntil]);
 
         return response()->json([
+            'status' => 'error',
+            'Response' => Response::HTTP_TOO_MANY_REQUESTS,
             'error' => 'You have exceeded the maximum number of requests allowed for your IP address. Please try again in 5 minutes.'
-        ], 429);
+        ]);
     }
 
     private function generateKey()
